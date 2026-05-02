@@ -9,6 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { getItem, addItem, removeItem, KEYS } from '../storage/storage';
+import { useTheme } from '../context/ThemeContext';
+import { useTokens } from '../context/TokenContext';
 import { Meal } from '../types';
 
 const CATEGORIES: { key: Meal['category']; label: string; icon: string }[] = [
@@ -23,6 +25,8 @@ function makeId(): string {
 }
 
 export default function WhatsForDinnerScreen() {
+  const { colors } = useTheme();
+  const { earn } = useTokens();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [name, setName] = useState('');
   const [category, setCategory] = useState<Meal['category']>('dinner');
@@ -39,109 +43,98 @@ export default function WhatsForDinnerScreen() {
 
   async function handleAdd() {
     if (!name.trim()) return;
-    const meal: Meal = {
-      id: makeId(),
-      name: name.trim(),
-      category,
-    };
+    const meal: Meal = { id: makeId(), name: name.trim(), category };
     const updated = await addItem(KEYS.MEALS, meal);
     setMeals(updated);
     setName('');
+    earn(3, '🍽️ Added a meal');
   }
 
   async function handleDelete(id: string) {
     Alert.alert('Delete meal?', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          const updated = await removeItem<Meal>(KEYS.MEALS, id);
-          setMeals(updated);
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        const updated = await removeItem<Meal>(KEYS.MEALS, id);
+        setMeals(updated);
+      }},
     ]);
   }
 
   function pickRandom(cat?: Meal['category']) {
     const pool = cat ? meals.filter((m) => m.category === cat) : meals;
-    if (pool.length === 0) {
-      setRandomPick('No meals to pick from!');
-      return;
-    }
+    if (pool.length === 0) { setRandomPick('No meals to pick from!'); return; }
     const pick = pool[Math.floor(Math.random() * pool.length)];
     setRandomPick(pick.name);
+    earn(1, '🎲 Used random picker');
   }
 
+  const s = makeStyles(colors);
+
   return (
-    <View style={styles.container}>
-      {/* ── Add meal ── */}
-      <View style={styles.addSection}>
+    <View style={s.container}>
+      <View style={s.addSection}>
         <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="Add a meal..."
+          placeholderTextColor={colors.textMuted}
           value={name}
           onChangeText={setName}
           onSubmitEditing={handleAdd}
         />
-        <View style={styles.catRow}>
+        <View style={s.catRow}>
           {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat.key}
-              style={[styles.catChip, category === cat.key && styles.catChipActive]}
+              style={[s.catChip, { backgroundColor: category === cat.key ? colors.chipActive : colors.chipBg }]}
               onPress={() => setCategory(cat.key)}
             >
-              <Text
-                style={[styles.catChipText, category === cat.key && styles.catChipTextActive]}
-              >
+              <Text style={{ fontSize: 13, color: category === cat.key ? colors.chipTextActive : colors.chipText }}>
                 {cat.icon} {cat.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-          <Text style={styles.addBtnText}>+ Add Meal</Text>
+        <TouchableOpacity style={s.addBtn} onPress={handleAdd}>
+          <Text style={s.addBtnText}>+ Add Meal</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Random picker ── */}
-      <View style={styles.randomSection}>
-        <View style={styles.randomRow}>
-          <TouchableOpacity style={styles.randomBtn} onPress={() => pickRandom('dinner')}>
-            <Text style={styles.randomBtnText}>🎲 Tonight's Dinner</Text>
+      <View style={s.randomSection}>
+        <View style={s.randomRow}>
+          <TouchableOpacity style={s.randomBtn} onPress={() => pickRandom('dinner')}>
+            <Text style={s.randomBtnText}>🎲 Tonight's Dinner</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.randomBtn} onPress={() => pickRandom()}>
-            <Text style={styles.randomBtnText}>🎰 Surprise Me</Text>
+          <TouchableOpacity style={[s.randomBtn, { backgroundColor: colors.accent }]} onPress={() => pickRandom()}>
+            <Text style={[s.randomBtnText, { color: '#fff' }]}>🎰 Surprise Me</Text>
           </TouchableOpacity>
         </View>
         {randomPick && (
-          <View style={styles.randomResult}>
-            <Text style={styles.randomResultText}>{randomPick}</Text>
+          <View style={[s.randomResult, { backgroundColor: colors.accentBg }]}>
+            <Text style={[s.randomResultText, { color: colors.text }]}>{randomPick}</Text>
             <TouchableOpacity onPress={() => setRandomPick(null)}>
-              <Text style={styles.randomClose}>✕</Text>
+              <Text style={{ fontSize: 18, color: colors.textSecondary, marginLeft: 12, fontWeight: '700' }}>✕</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* ── Meals grouped by category ── */}
       <FlatList
         data={CATEGORIES}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={s.list}
         renderItem={({ item: cat }) => {
           const catMeals = meals.filter((m) => m.category === cat.key);
           if (catMeals.length === 0) return null;
           return (
-            <View style={styles.categoryBlock}>
-              <Text style={styles.catHeader}>
+            <View style={s.categoryBlock}>
+              <Text style={[s.catHeader, { color: colors.text }]}>
                 {cat.icon} {cat.label} ({catMeals.length})
               </Text>
               {catMeals.map((meal) => (
-                <View key={meal.id} style={styles.mealRow}>
-                  <Text style={styles.mealName}>{meal.name}</Text>
+                <View key={meal.id} style={[s.mealRow, { backgroundColor: colors.card }]}>
+                  <Text style={{ fontSize: 16, color: colors.text }}>{meal.name}</Text>
                   <TouchableOpacity onPress={() => handleDelete(meal.id)}>
-                    <Text style={styles.deleteBtn}>🗑️</Text>
+                    <Text style={{ fontSize: 18 }}>🗑️</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -149,86 +142,37 @@ export default function WhatsForDinnerScreen() {
           );
         }}
         ListEmptyComponent={
-          <Text style={styles.empty}>No meals yet. Add your favorites above!</Text>
+          <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 40, fontSize: 16 }}>
+            No meals yet. Add your favorites above!
+          </Text>
         }
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  addSection: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  input: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  catRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  catChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#f0f0f0',
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  catChipActive: { backgroundColor: '#1a1a2e' },
-  catChipText: { fontSize: 13, color: '#555' },
-  catChipTextActive: { color: '#fff' },
-  addBtn: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  addBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  randomSection: { padding: 12, backgroundColor: '#fff', marginTop: 4, marginBottom: 4 },
-  randomRow: { flexDirection: 'row', gap: 8 },
-  randomBtn: {
-    flex: 1,
-    backgroundColor: '#ffeaa7',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  randomBtnText: { fontSize: 15, fontWeight: '700', color: '#2d3436' },
-  randomResult: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#dfe6e9',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
-  },
-  randomResultText: { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
-  randomClose: { fontSize: 18, color: '#888', marginLeft: 12, fontWeight: '700' },
-  list: { padding: 12, paddingBottom: 40 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 16 },
-  categoryBlock: { marginBottom: 16 },
-  catHeader: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 },
-  mealRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  mealName: { fontSize: 16, color: '#333' },
-  deleteBtn: { fontSize: 18 },
-});
+function makeStyles(colors: any) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    addSection: { backgroundColor: colors.surface, padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    input: { backgroundColor: colors.inputBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, color: colors.text },
+    catRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+    catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginRight: 6, marginBottom: 4 },
+    addBtn: { backgroundColor: colors.accent, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
+    addBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    randomSection: { padding: 12, backgroundColor: colors.surface, marginTop: 4, marginBottom: 4 },
+    randomRow: { flexDirection: 'row', gap: 8 },
+    randomBtn: { flex: 1, backgroundColor: '#ffeaa7', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+    randomBtnText: { fontSize: 15, fontWeight: '700', color: '#2d3436' },
+    randomResult: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: 12, marginTop: 8 },
+    randomResultText: { fontSize: 18, fontWeight: '700' },
+    list: { padding: 12, paddingBottom: 40 },
+    categoryBlock: { marginBottom: 16 },
+    catHeader: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+    mealRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      borderRadius: 10, padding: 12, marginBottom: 4,
+      shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+    },
+  });
+}

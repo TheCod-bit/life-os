@@ -9,6 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { getItem, addItem, updateItem, removeItem, KEYS } from '../storage/storage';
+import { useTheme } from '../context/ThemeContext';
+import { useTokens } from '../context/TokenContext';
 import { StickyNote } from '../types';
 
 const TAGS = ['🏠 Home', '💼 Work', '🛒 Shopping', '❤️ Health', '🚨 Urgent', '📌 Other'];
@@ -18,6 +20,8 @@ function makeId(): string {
 }
 
 export default function DontForgetScreen() {
+  const { colors } = useTheme();
+  const { earn } = useTokens();
   const [notes, setNotes] = useState<StickyNote[]>([]);
   const [text, setText] = useState('');
   const [selectedTag, setSelectedTag] = useState('📌 Other');
@@ -44,6 +48,7 @@ export default function DontForgetScreen() {
     const updated = await addItem(KEYS.NOTES, newNote);
     setNotes(updated);
     setText('');
+    earn(3, '📝 Added a note');
   }
 
   async function handleToggle(id: string) {
@@ -51,6 +56,9 @@ export default function DontForgetScreen() {
     if (!note) return;
     const updated = await updateItem<StickyNote>(KEYS.NOTES, id, { done: !note.done });
     setNotes(updated);
+    if (!note.done) {
+      earn(5, '✅ Completed a task');
+    }
   }
 
   async function handleDelete(id: string) {
@@ -74,84 +82,82 @@ export default function DontForgetScreen() {
   const active = displayedNotes.filter((n) => !n.done);
   const done = displayedNotes.filter((n) => n.done);
 
+  const s = makeStyles(colors);
+
   return (
-    <View style={styles.container}>
-      {/* ── Add new note ── */}
-      <View style={styles.addBar}>
+    <View style={s.container}>
+      <View style={s.addBar}>
         <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="What do you need to remember?"
+          placeholderTextColor={colors.textMuted}
           value={text}
           onChangeText={setText}
           onSubmitEditing={handleAdd}
         />
-        <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-          <Text style={styles.addBtnText}>+</Text>
+        <TouchableOpacity style={s.addBtn} onPress={handleAdd}>
+          <Text style={s.addBtnText}>+</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Tag picker for new note ── */}
-      <View style={styles.tagRow}>
+      <View style={s.tagRow}>
         {TAGS.map((tag) => (
           <TouchableOpacity
             key={tag}
-            style={[styles.tagChip, selectedTag === tag && styles.tagChipActive]}
+            style={[s.tagChip, { backgroundColor: selectedTag === tag ? colors.chipActive : colors.chipBg }]}
             onPress={() => setSelectedTag(tag)}
           >
-            <Text style={[styles.tagChipText, selectedTag === tag && styles.tagChipTextActive]}>
+            <Text style={[s.tagChipText, { color: selectedTag === tag ? colors.chipTextActive : colors.chipText }]}>
               {tag}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* ── Filter tags ── */}
-      <View style={styles.filterRow}>
+      <View style={s.filterRow}>
         <TouchableOpacity
-          style={[styles.filterChip, filterTag === null && styles.filterChipActive]}
+          style={[s.filterChip, { backgroundColor: filterTag === null ? colors.alertBg : colors.chipBg }]}
           onPress={() => setFilterTag(null)}
         >
-          <Text style={[styles.filterChipText, filterTag === null && styles.filterChipTextActive]}>
+          <Text style={[s.filterChipText, { color: filterTag === null ? colors.alertText : colors.chipText }]}>
             All
           </Text>
         </TouchableOpacity>
         {TAGS.map((tag) => (
           <TouchableOpacity
             key={tag}
-            style={[styles.filterChip, filterTag === tag && styles.filterChipActive]}
+            style={[s.filterChip, { backgroundColor: filterTag === tag ? colors.alertBg : colors.chipBg }]}
             onPress={() => setFilterTag(filterTag === tag ? null : tag)}
           >
-            <Text style={[styles.filterChipText, filterTag === tag && styles.filterChipTextActive]}>
+            <Text style={[s.filterChipText, { color: filterTag === tag ? colors.alertText : colors.chipText }]}>
               {tag}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* ── Notes list ── */}
       <FlatList
         data={[...active, ...done]}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={s.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No notes yet. Add one above!</Text>
+          <Text style={{ color: colors.textMuted, textAlign: 'center', marginTop: 40, fontSize: 16 }}>
+            No notes yet. Add one above!
+          </Text>
         }
         renderItem={({ item }) => (
-          <View style={[styles.noteCard, item.done && styles.noteCardDone]}>
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => handleToggle(item.id)}
-            >
-              <Text style={styles.checkIcon}>{item.done ? '✅' : '⬜'}</Text>
+          <View style={[s.noteCard, { backgroundColor: item.done ? colors.accentBg : colors.card, opacity: item.done ? 0.6 : 1 }]}>
+            <TouchableOpacity style={s.checkbox} onPress={() => handleToggle(item.id)}>
+              <Text style={s.checkIcon}>{item.done ? '✅' : '⬜'}</Text>
             </TouchableOpacity>
-            <View style={styles.noteBody}>
-              <Text style={[styles.noteText, item.done && styles.noteTextDone]}>
+            <View style={s.noteBody}>
+              <Text style={[s.noteText, { color: item.done ? colors.textMuted : colors.text, textDecorationLine: item.done ? 'line-through' : 'none' }]}>
                 {item.text}
               </Text>
-              <Text style={styles.noteTag}>{item.tag}</Text>
+              <Text style={[s.noteTag, { color: colors.textSecondary }]}>{item.tag}</Text>
             </View>
             <TouchableOpacity onPress={() => handleDelete(item.id)}>
-              <Text style={styles.deleteBtn}>🗑️</Text>
+              <Text style={s.deleteBtn}>🗑️</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -160,90 +166,71 @@ export default function DontForgetScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  addBar: {
-    flexDirection: 'row',
-    padding: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  addBtn: {
-    backgroundColor: '#1a1a2e',
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  addBtnText: { color: '#fff', fontSize: 24, fontWeight: '600', lineHeight: 26 },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: '#f0f0f0',
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  tagChipActive: { backgroundColor: '#1a1a2e' },
-  tagChipText: { fontSize: 12, color: '#555' },
-  tagChipTextActive: { color: '#fff' },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
-    backgroundColor: '#fff',
-    marginBottom: 4,
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  filterChipActive: { backgroundColor: '#ffeaa7' },
-  filterChipText: { fontSize: 12, color: '#555' },
-  filterChipTextActive: { color: '#2d3436', fontWeight: '600' },
-  list: { padding: 12, paddingBottom: 40 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 16 },
-  noteCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  noteCardDone: { opacity: 0.5, backgroundColor: '#f5f5f5' },
-  checkbox: { marginRight: 10 },
-  checkIcon: { fontSize: 22 },
-  noteBody: { flex: 1 },
-  noteText: { fontSize: 16, color: '#1a1a2e' },
-  noteTextDone: { textDecorationLine: 'line-through', color: '#aaa' },
-  noteTag: { fontSize: 12, color: '#888', marginTop: 3 },
-  deleteBtn: { fontSize: 18, paddingLeft: 8 },
-});
+function makeStyles(colors: any) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    addBar: {
+      flexDirection: 'row',
+      padding: 12,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: colors.inputBg,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: colors.text,
+    },
+    addBtn: {
+      backgroundColor: colors.accent,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: 10,
+    },
+    addBtnText: { color: '#fff', fontSize: 24, fontWeight: '600', lineHeight: 26 },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      padding: 8,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    tagChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, marginRight: 6, marginBottom: 4 },
+    tagChipText: { fontSize: 12 },
+    filterRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      padding: 8,
+      backgroundColor: colors.surface,
+      marginBottom: 4,
+    },
+    filterChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginRight: 6, marginBottom: 4 },
+    filterChipText: { fontSize: 12, fontWeight: '600' },
+    list: { padding: 12, paddingBottom: 40 },
+    noteCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    checkbox: { marginRight: 10 },
+    checkIcon: { fontSize: 22 },
+    noteBody: { flex: 1 },
+    noteText: { fontSize: 16 },
+    noteTag: { fontSize: 12, marginTop: 3 },
+    deleteBtn: { fontSize: 18, paddingLeft: 8 },
+  });
+}
