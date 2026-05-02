@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
+import { getTier } from '../screens/UsernameScreen';
 
 interface TokenEntry {
   amount: number;
@@ -25,6 +27,25 @@ const TokenContext = createContext<TokenContextValue>({
 
 const BALANCE_KEY = '@life-os/token-balance';
 const HISTORY_KEY = '@life-os/token-history';
+const USERNAME_KEY = '@life-os/username';
+
+async function syncToLeaderboard(balance: number) {
+  try {
+    const username = await AsyncStorage.getItem(USERNAME_KEY);
+    if (!username) return;
+    await supabase
+      .from('players')
+      .upsert({
+        id: username.toLowerCase(),
+        username,
+        tokens: balance,
+        tier: getTier(balance),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+  } catch {
+    // Silently fail — local tokens still work without Supabase
+  }
+}
 
 export function TokenProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(0);
@@ -45,6 +66,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
   const saveBalance = useCallback(async (newBalance: number) => {
     setBalance(newBalance);
     await AsyncStorage.setItem(BALANCE_KEY, String(newBalance));
+    syncToLeaderboard(newBalance);
   }, []);
 
   const saveHistory = useCallback(async (newHistory: TokenEntry[]) => {
